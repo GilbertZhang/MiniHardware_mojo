@@ -1,0 +1,133 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,       // AVR RX buffer full
+    output uinp1,
+    output uinp2,
+    output uinp3,
+    input sum,
+    input carryout,
+    output io_led[3][8]
+  ) {
+  
+  sig rst;                  // reset signal
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    .rst(rst) {
+      fsm state(#INIT(A)) = {A,B,C,D,E,F,G,H,FINISH};
+      dff counter[26];
+      dff hold[27];
+    }
+  }
+  
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    led = 8h00;             // turn LEDs off
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+    
+    io_led = 3x{{8h00}};
+    
+    counter.d = counter.q + 1;
+    hold.d = hold.q + 1;
+    
+    uinp1 = 0;
+    uinp2 = 0;
+    uinp3 = 0;
+    
+    case(state.q){
+    
+      state.A:
+        uinp1 = 0;
+        uinp2 = 0;
+        uinp3 = 0;
+        io_led[0][0] = counter.q[24];
+        if (sum == 0 && carryout == 0 && hold.q[26:0] == 1){ 
+          io_led[0] = c{1,7h00};
+          state.d = state.B;}
+      
+      state.B:
+        uinp1 = 0;
+        uinp2 = 0;
+        uinp3 = 1;
+        io_led[0][1] = counter.q[24];
+        if (sum == 1 && carryout == 0 && hold.q[26:0] == 1){
+          io_led[0] = c{2hFF,6h00};
+           state.d = state.C;}
+        
+      state.C:
+        uinp1 = 0;
+        uinp2 = 1;
+        uinp3 = 0;
+        io_led[0][2] = counter.q[24];
+        if (sum == 1 && carryout == 0 && hold.q[26:0] == 1){
+          io_led[0] = c{3hFF,5h00};
+           state.d = state.D;}  
+        
+      state.D:
+        uinp1 = 0;
+        uinp2 = 1;
+        uinp3 = 1;
+        io_led[0][3] = counter.q[24];
+        if (sum == 0 && carryout == 1 && hold.q[26:0] == 1){
+          io_led[0] = c{4hFF,4h00};
+           state.d = state.E;}
+      
+      state.E:
+        uinp1 = 1;
+        uinp2 = 0;
+        uinp3 = 0;
+        io_led[0][4] = counter.q[24];
+        if (sum == 1 && carryout == 0 && hold.q[26:0] == 1){
+          io_led[0] = c{5hFF,3h00};
+           state.d = state.F;}
+        
+      state.F:
+        uinp1 = 1;
+        uinp2 = 0;
+        uinp3 = 1;
+        io_led[0][5] = counter.q[24];
+        if (sum == 0 && carryout == 1 && hold.q[26:0] == 1){
+          io_led[0] = c{6hFF,2h00};
+          state.d = state.G;}
+        
+      state.G:
+        uinp1 = 1;
+        uinp2 = 1;
+        uinp3 = 0;
+        io_led[0][6] = counter.q[24];
+        if (sum == 0 && carryout == 1 && hold.q[26:0] == 1){
+          io_led[0] = c{7hFF,0};
+           state.d = state.H;}
+        
+      state.H:
+        uinp1 = 1;
+        uinp2 = 1;
+        uinp3 = 1;
+        io_led[0][7] = counter.q[24];
+        if (sum == 1 && carryout == 1 && hold.q[26:0] == 1){
+          io_led[0] = 8hFF;
+          state.d = state.FINISH;}
+        
+      state.FINISH:
+        io_led[0] = 8x{counter.q[24]};
+
+    }
+  }
+}
