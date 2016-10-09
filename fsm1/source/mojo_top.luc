@@ -11,10 +11,10 @@ module mojo_top (
     input avr_tx,           // AVR TX (FPGA RX)
     output avr_rx,          // AVR RX (FPGA TX)
     input avr_rx_busy,       // AVR RX buffer full
-    output uinp1,
+    output uinp1,            //output signals uinp1, uinp2, uinp3
     output uinp2,
     output uinp3,
-    input sum,
+    input sum,               //input signals
     input carryout,
     output io_led[3][8]
   ) {
@@ -27,9 +27,11 @@ module mojo_top (
     reset_conditioner reset_cond;
     
     .rst(rst) {
+      //finite state machines for all eight testcases
+      //corresponding to 000 001 010 011 100 101 110 111 and one final state
       fsm state(#INIT(A)) = {A,B,C,D,E,F,G,H,FINISH};
-      dff counter[26];
-      dff hold[27];
+      dff counter[26];  // blinking the led
+      dff hold[27];     // slow down the test case
     }
   }
   
@@ -42,12 +44,12 @@ module mojo_top (
     spi_channel = bzzzz;    // not using flags
     avr_rx = bz;            // not using serial port
     
-    io_led = 3x{{8h00}};
+    io_led = 3x{{8h00}}; // initialize the io shield led
     
     counter.d = counter.q + 1;
     hold.d = hold.q + 1;
     
-    uinp1 = 0;
+    uinp1 = 0;   // initialize outputs
     uinp2 = 0;
     uinp3 = 0;
     
@@ -57,9 +59,9 @@ module mojo_top (
         uinp1 = 0;
         uinp2 = 0;
         uinp3 = 0;
-        io_led[0][0] = counter.q[24];
+        io_led[0][0] = counter.q[24];  // blink the led 
         if (sum == 0 && carryout == 0 && hold.q[26:0] == 1){ 
-          io_led[0] = c{1,7h00};
+          io_led[0] = c{1,7h00};  // light up the led
           state.d = state.B;}
       
       state.B:
